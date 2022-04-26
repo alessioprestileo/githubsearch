@@ -37,7 +37,7 @@
   padding: 10px;
 }
 
-.user-card-avatar-container {
+.user-card-minimal-info-avatar-container {
   border-radius: 60px;
   border: 1px solid;
   display: flex;
@@ -55,14 +55,19 @@
 }
 
 .user-card-main-info {
+  align-items: flex-start;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  align-items: flex-start;
+  padding-left: 10px;
   width: 70%;
 }
 
-.user-card-name h4 {
+.user-card-main-info-email {
+  margin-top: 10px;
+}
+
+.user-card-main-info-name h4 {
   margin: 0 0 10px 0;
 }
 
