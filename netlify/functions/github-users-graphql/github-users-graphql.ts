@@ -2,12 +2,12 @@ import { Handler } from '@netlify/functions';
 import axios from 'axios';
 
 export const handler: Handler = async (event) => {
-  const { q, after } = event.queryStringParameters || {};
+  const { q, first, last, before, after } = event.queryStringParameters || {};
   if (!q) {
     return {
       statusCode: 400,
       body: JSON.stringify({
-        message: 'The query parameter q is required',
+        message: 'The query parameter "q" is required',
       }),
     };
   }
@@ -15,8 +15,8 @@ export const handler: Handler = async (event) => {
   const token = process.env.REACT_APP_GITHUB_TOKEN;
   const data = JSON.stringify({
     query: `
-query($q:String!, $after:String) {
-  search(query: $q, type: USER, first: 20, after: $after) {
+query($q:String!, $first:Int, $last:Int, $before:String, $after:String) {
+  search(query: $q, type: USER, first: $first, last: $last, before: $before, after: $after) {
     userCount
     pageInfo {
       endCursor
@@ -41,7 +41,7 @@ query($q:String!, $after:String) {
   }
 }
 `,
-    variables: { q, after },
+    variables: { q, first: first && parseInt(first), last: last && parseInt(last), before, after },
   });
 
   const config = {

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   BrowserRouter as Router,
   useLocation,
@@ -10,6 +10,7 @@ import IconButton from '@mui/material/IconButton';
 import SearchIcon from '@mui/icons-material/Search';
 
 import './App.css';
+import { Pagination } from '@mui/material';
 
 export const App = () => (<Router><Home /></Router>);
 
@@ -19,29 +20,83 @@ const useUrlSearchParams = (): URLSearchParams => {
   return React.useMemo(() => new URLSearchParams(search), [search]);
 }
 
+const USERS_PER_PAGE = 20;
+
+interface SearchResult {
+  data: {
+    users: User[];
+    userCount: number;
+    pageInfo: {
+      startCursor: string;
+      endCursor: string;
+    }
+  }
+}
+
+interface PaginationState {
+  currentPage: number;
+  totalPages: number;
+}
+
 const Home = () => {
+  const isFirstRender = useRef(true);
   const urlSearchParams = useUrlSearchParams();
   const navigate = useNavigate();
   const [query, setQuery] = useState<string>(urlSearchParams.get('q') || '');
   const queryRef = useRef(query);
-  const [searchResult, setSearchResult] = useState<any>(undefined);
+  const [searchResult, setSearchResult] = useState<SearchResult | undefined>(undefined);
+  const requestedPageFromUrlSearchParams = urlSearchParams.get('page');
+  const [requestedPage, setRequestedPage] = useState<number | undefined>(requestedPageFromUrlSearchParams && !isNaN(parseInt(requestedPageFromUrlSearchParams)) ? parseInt(requestedPageFromUrlSearchParams) : undefined);
+  const [paginationState, setPaginationState] = useState<PaginationState | undefined>(undefined);
+
   const handleQueryChange: InputBaseProps['onChange'] = (e) => {
     const { value } = e.target;
     setQuery(value);
   };
   const handleNewSearch = (): void => {
     queryRef.current = query;
-    const locationSearch = `?q=${encodeURIComponent(query)}`;
-    navigate(`/${locationSearch}`);
-    fetch(`/.netlify/functions/github-users-graphql${locationSearch}`)
-      .then((res) => res.json())
-      .then((result) => setSearchResult(result));
-  };
-  useEffect(() => {
-    if (query) {
-      handleNewSearch();
+    if (requestedPage === undefined || requestedPage === 1) {
+      navigate(`/?q=${encodeURIComponent(query)}`);
+      fetch(`/.netlify/functions/github-users-graphql?q=${encodeURIComponent(query)}&first=${USERS_PER_PAGE}`)
+        .then((res) => res.json())
+        .then((result: SearchResult) => {
+          setSearchResult(result);
+          setPaginationState({ currentPage: 1, totalPages: parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1 });
+        });
     }
-  }, []);
+  };
+  const memoizedHandleNewSearch = useCallback(() => handleNewSearch(), [handleNewSearch]);
+  useEffect(() => {
+    if (isFirstRender.current && query) {
+      isFirstRender.current = false;
+      memoizedHandleNewSearch();
+    }
+  }, [isFirstRender, memoizedHandleNewSearch, query]);
+  useEffect(() => {
+    if (!searchResult || !paginationState || !requestedPage) {
+      return;
+    }
+    if (requestedPage === paginationState.currentPage + 1) {
+      fetch(`/.netlify/functions/github-users-graphql?q=${encodeURIComponent(query)}&first=${USERS_PER_PAGE}&after=${searchResult.data.pageInfo.endCursor}`)
+        .then((res) => res.json())
+        .then((result: SearchResult) => {
+          setSearchResult(result);
+          setPaginationState({ currentPage: requestedPage, totalPages: parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1 });
+          setRequestedPage(undefined);
+        });
+      return;
+    }
+    if (requestedPage === paginationState.currentPage - 1) {
+      fetch(`/.netlify/functions/github-users-graphql?q=${encodeURIComponent(query)}&last=${USERS_PER_PAGE}&before=${searchResult.data.pageInfo.startCursor}`)
+        .then((res) => res.json())
+        .then((result: SearchResult) => {
+          setSearchResult(result);
+          setPaginationState({ currentPage: requestedPage, totalPages: parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1 });
+          setRequestedPage(undefined);
+        });
+      return;
+    }
+  }, [requestedPage, searchResult, paginationState]);
   const queryHasChanged = query !== queryRef.current;
 
   return (
@@ -86,6 +141,12 @@ const Home = () => {
                 ))}
               </ul>
             </div>
+            {
+              paginationState &&
+              <Pagination className="search-pagination" count={paginationState.totalPages} page={paginationState.currentPage} onChange={(event, page) => {
+                setRequestedPage(page);
+              }} />
+            }
           </>
         )}
       </div>
