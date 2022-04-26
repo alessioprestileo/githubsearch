@@ -17,7 +17,8 @@ function App() {
   const handleNewSearch: React.MouseEventHandler<HTMLButtonElement> = (e) => {
     e.preventDefault();
     queryRef.current = query;
-    fetch(`/.netlify/functions/github-users-graphql?q=${query}`)
+    const locationSearch = `?q=${encodeURIComponent(query)}`;
+    fetch(`/.netlify/functions/github-users-graphql${locationSearch}`)
       .then((res) => res.json())
       .then((result) => setSearchResult(result));
   };
@@ -25,7 +26,8 @@ function App() {
 
   return (
     <div className="app">
-      <div>
+      <div className="search-view">
+        <header><h1>Search github users</h1></header>
         <Paper
           component="form"
           sx={{
@@ -52,23 +54,57 @@ function App() {
             <SearchIcon />
           </IconButton>
         </Paper>
-        <div className="search-summary">
-          {searchResult && (
-            <>
-              <div className="search-total">
-                Found {searchResult.data.userCount} users
-              </div>
-              <ul className="search-items">
-                {searchResult.data.users.map((item: any) => (
-                  <li key={item.id}>{item.login}</li>
+        {searchResult && (
+          <>
+            <div className="search-total">
+              Found {searchResult.data.userCount} users
+            </div>
+            <div className="search-items">
+              <ul className="search-items-list">
+                {searchResult.data.users.map((item: User) => (
+                  <li key={item.id}><UserCard {...item} /></li>
                 ))}
               </ul>
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 }
+
+interface User {
+  avatarUrl: string;
+  bioHTML: string;
+  email: string;
+  followers: number;
+  following: number;
+  id: string;
+  login: string;
+  name: string;
+  starredRepositories: number;
+  url: string;
+}
+
+const UserCard = ({ avatarUrl, bioHTML, email, followers, following, login, name, starredRepositories, url }: User) => (
+  <div className="user-card">
+    <div className="user-card-minimal-info">
+      <div className="user-card-avatar-container">
+        <img className="user-card-avatar-img" src={avatarUrl} alt="avatar" />
+      </div>
+      <div className="user-card-login"><a href={url}>{login}</a></div>
+    </div>
+    <div className="user-card-main-info">
+      <div className="user-card-name"><h4>{name}</h4></div>
+      <div className="user-card-bio" dangerouslySetInnerHTML={{ __html: bioHTML }} />
+      <div className="user-card-email"><a href={`mailto:${email}`}>{email}</a></div>
+    </div>
+    <div className="user-card-counts">
+      <div className="user-card-followers-count">Followers: {followers}</div>
+      <div className="user-card-following-count">Following: {following}</div>
+      <div className="user-card-starredRepositories-count">Starred: {starredRepositories}</div>
+    </div>
+  </div>
+)
 
 export default App;

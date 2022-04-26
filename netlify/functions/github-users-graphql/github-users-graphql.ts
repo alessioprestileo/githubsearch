@@ -64,7 +64,21 @@ query($q:String!, $after:String) {
       },
     } = await axios(config);
     const { edges, ...restOfRawSearch } = rawSearch;
-    const users = edges.map(({ node }: any) => node);
+    const users = edges.map(
+      ({
+        node: {
+          followers: { totalCount: totalCountFollowers },
+          following: { totalCount: totalCountFollowing },
+          starredRepositories: { totalCount: totalCountStarredRepositories },
+          ...restOfUser
+        },
+      }: any) => ({
+        followers: totalCountFollowers,
+        following: totalCountFollowing,
+        starredRepositories: totalCountStarredRepositories,
+        ...restOfUser,
+      })
+    );
     const data = { users, ...restOfRawSearch };
 
     return {
