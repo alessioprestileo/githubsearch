@@ -12,6 +12,10 @@
   height: 100%;
 }
 
+.search-total {
+  margin-top: 10px;
+}
+
 .search-items {
   display: flex;
   flex-grow: 1;

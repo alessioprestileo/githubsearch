@@ -1,4 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  BrowserRouter as Router,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import Paper from '@mui/material/Paper';
 import InputBase, { InputBaseProps } from '@mui/material/InputBase';
 import IconButton from '@mui/material/IconButton';
@@ -6,22 +11,37 @@ import SearchIcon from '@mui/icons-material/Search';
 
 import './App.css';
 
-function App() {
-  const [query, setQuery] = useState<string>('');
+export const App = () => (<Router><Home /></Router>);
+
+const useUrlSearchParams = (): URLSearchParams => {
+  const { search } = useLocation();
+
+  return React.useMemo(() => new URLSearchParams(search), [search]);
+}
+
+const Home = () => {
+  const urlSearchParams = useUrlSearchParams();
+  const navigate = useNavigate();
+  const [query, setQuery] = useState<string>(urlSearchParams.get('q') || '');
   const queryRef = useRef(query);
   const [searchResult, setSearchResult] = useState<any>(undefined);
   const handleQueryChange: InputBaseProps['onChange'] = (e) => {
     const { value } = e.target;
     setQuery(value);
   };
-  const handleNewSearch: React.MouseEventHandler<HTMLButtonElement> = (e) => {
-    e.preventDefault();
+  const handleNewSearch = (): void => {
     queryRef.current = query;
     const locationSearch = `?q=${encodeURIComponent(query)}`;
+    navigate(`/${locationSearch}`);
     fetch(`/.netlify/functions/github-users-graphql${locationSearch}`)
       .then((res) => res.json())
       .then((result) => setSearchResult(result));
   };
+  useEffect(() => {
+    if (query) {
+      handleNewSearch();
+    }
+  }, []);
   const queryHasChanged = query !== queryRef.current;
 
   return (
@@ -34,7 +54,7 @@ function App() {
             p: '2px 4px',
             display: 'flex',
             alignItems: 'center',
-            width: 400,
+            width: 600,
           }}
         >
           <InputBase
@@ -48,7 +68,7 @@ function App() {
             type="submit"
             sx={{ p: '10px' }}
             aria-label="search"
-            onClick={handleNewSearch}
+            onClick={e => { e.preventDefault(); handleNewSearch() }}
             disabled={!(query && queryHasChanged)}
           >
             <SearchIcon />
@@ -57,7 +77,7 @@ function App() {
         {searchResult && (
           <>
             <div className="search-total">
-              Found {searchResult.data.userCount} users
+              Found {searchResult.data.userCount} {searchResult.data.userCount === 1 ? 'user' : 'users'}
             </div>
             <div className="search-items">
               <ul className="search-items-list">
@@ -106,5 +126,3 @@ const UserCard = ({ avatarUrl, bioHTML, email, followers, following, login, name
     </div>
   </div>
 )
-
-export default App;
