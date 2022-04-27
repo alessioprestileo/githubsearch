@@ -102,7 +102,7 @@ const Home = () => {
   return (
     <div className="app">
       <div className="search-view">
-        <header><h1>Search github users</h1></header>
+        <header><h1>Search GitHub users</h1></header>
         <Paper
           component="form"
           sx={{
@@ -114,7 +114,7 @@ const Home = () => {
         >
           <InputBase
             sx={{ ml: 1, flex: 1 }}
-            placeholder="Search Github"
+            placeholder="Search GitHub"
             inputProps={{ 'aria-label': 'search github' }}
             value={query}
             onChange={handleQueryChange}
