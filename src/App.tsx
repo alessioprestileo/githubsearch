@@ -57,7 +57,7 @@ const Home = () => {
     queryRef.current = query;
     if (requestedPage === undefined || requestedPage === 1) {
       navigate(`/?q=${encodeURIComponent(query)}`);
-      fetch(`/.netlify/functions/github-users-graphql?q=${encodeURIComponent(query)}&first=${USERS_PER_PAGE}`)
+      fetch(`/.netlify/functions/github-users-search?q=${encodeURIComponent(query)}&first=${USERS_PER_PAGE}`)
         .then((res) => res.json())
         .then((result: SearchResult) => {
           setSearchResult(result);
@@ -77,7 +77,7 @@ const Home = () => {
       return;
     }
     if (requestedPage === paginationState.currentPage + 1) {
-      fetch(`/.netlify/functions/github-users-graphql?q=${encodeURIComponent(query)}&first=${USERS_PER_PAGE}&after=${searchResult.data.pageInfo.endCursor}`)
+      fetch(`/.netlify/functions/github-users-search?q=${encodeURIComponent(query)}&first=${USERS_PER_PAGE}&after=${searchResult.data.pageInfo.endCursor}`)
         .then((res) => res.json())
         .then((result: SearchResult) => {
           setSearchResult(result);
@@ -87,7 +87,7 @@ const Home = () => {
       return;
     }
     if (requestedPage === paginationState.currentPage - 1) {
-      fetch(`/.netlify/functions/github-users-graphql?q=${encodeURIComponent(query)}&last=${USERS_PER_PAGE}&before=${searchResult.data.pageInfo.startCursor}`)
+      fetch(`/.netlify/functions/github-users-search?q=${encodeURIComponent(query)}&last=${USERS_PER_PAGE}&before=${searchResult.data.pageInfo.startCursor}`)
         .then((res) => res.json())
         .then((result: SearchResult) => {
           setSearchResult(result);
