@@ -41,7 +41,13 @@ query($q:String!, $first:Int, $last:Int, $before:String, $after:String) {
   }
 }
 `,
-    variables: { q, first: first && parseInt(first), last: last && parseInt(last), before, after },
+    variables: {
+      q,
+      first: first && parseInt(first),
+      last: last && parseInt(last),
+      before,
+      after,
+    },
   });
 
   const config = {
@@ -66,16 +72,11 @@ query($q:String!, $first:Int, $last:Int, $before:String, $after:String) {
     const { edges, ...restOfRawSearch } = rawSearch;
     const users = edges.map(
       ({
-        node: {
-          followers: { totalCount: totalCountFollowers },
-          following: { totalCount: totalCountFollowing },
-          starredRepositories: { totalCount: totalCountStarredRepositories },
-          ...restOfUser
-        },
+        node: { followers, following, starredRepositories, ...restOfUser },
       }: any) => ({
-        followers: totalCountFollowers,
-        following: totalCountFollowing,
-        starredRepositories: totalCountStarredRepositories,
+        followers: followers?.totalCount || 0,
+        following: following?.totalCount || 0,
+        starredRepositories: starredRepositories?.totalCount || 0,
         ...restOfUser,
       })
     );

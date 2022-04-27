@@ -3,7 +3,7 @@ import {
   BrowserRouter as Router,
   useLocation,
   useNavigate,
-} from "react-router-dom";
+} from 'react-router-dom';
 import Paper from '@mui/material/Paper';
 import InputBase, { InputBaseProps } from '@mui/material/InputBase';
 import IconButton from '@mui/material/IconButton';
@@ -12,25 +12,91 @@ import SearchIcon from '@mui/icons-material/Search';
 import './App.css';
 import { Pagination } from '@mui/material';
 
-export const App = () => (<Router><Home /></Router>);
+export const App = () => (
+  <Router>
+    <Home />
+  </Router>
+);
 
 const useUrlSearchParams = (): URLSearchParams => {
   const { search } = useLocation();
 
   return React.useMemo(() => new URLSearchParams(search), [search]);
-}
+};
 
 const USERS_PER_PAGE = 20;
+const MAX_CURSOR_SHIFT = 100;
+
+const getNextCursorShift = (
+  shift: number
+): { nextShift: number; remainder: number } => {
+  if (Math.abs(shift) >= MAX_CURSOR_SHIFT) {
+    if (shift > 0) {
+      return {
+        nextShift: MAX_CURSOR_SHIFT,
+        remainder: shift - MAX_CURSOR_SHIFT,
+      };
+    } else {
+      return {
+        nextShift: -MAX_CURSOR_SHIFT,
+        remainder: shift + MAX_CURSOR_SHIFT,
+      };
+    }
+  } else {
+    return { nextShift: shift, remainder: 0 };
+  }
+};
+
+const fetchNewCursor = async (
+  query: string,
+  shift: number,
+  initialCursor?: string
+): Promise<string> => {
+  let { remainder, nextShift } = getNextCursorShift(shift);
+  let cursor: string = initialCursor || '';
+  let hasNextPage = true;
+  let hasPreviousPage = true;
+
+  while (Math.abs(nextShift) > 0) {
+    const res: { data: { pageInfo: MoveCursorPageInfo } } = await fetch(
+      `/.netlify/functions/github-users-move-cursor?q=${encodeURIComponent(
+        query
+      )}&shift=${nextShift}${cursor ? `&cursor=${cursor}` : ''}`
+    ).then((res) => res.json());
+    const { startCursor, endCursor } = res.data.pageInfo;
+    hasNextPage = res.data.pageInfo.hasNextPage;
+    hasPreviousPage = res.data.pageInfo.hasPreviousPage;
+    if ((shift > 0 && !hasNextPage) || (shift < 0 && !hasPreviousPage)) break;
+
+    if (shift > 0) {
+      cursor = endCursor;
+    } else {
+      cursor = startCursor;
+    }
+    const next = getNextCursorShift(remainder);
+    remainder = next.remainder;
+    nextShift = next.nextShift;
+  }
+
+  return cursor;
+};
+
+interface PageInfo {
+  startCursor: string;
+  endCursor: string;
+}
+
+interface MoveCursorPageInfo extends PageInfo {
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
 
 interface SearchResult {
   data: {
     users: User[];
     userCount: number;
-    pageInfo: {
-      startCursor: string;
-      endCursor: string;
-    }
-  }
+    pageInfo: PageInfo;
+  };
 }
 
 interface PaginationState {
@@ -44,65 +110,155 @@ const Home = () => {
   const navigate = useNavigate();
   const [query, setQuery] = useState<string>(urlSearchParams.get('q') || '');
   const queryRef = useRef(query);
-  const [searchResult, setSearchResult] = useState<SearchResult | undefined>(undefined);
+  const [searchResult, setSearchResult] = useState<SearchResult | undefined>(
+    undefined
+  );
   const requestedPageFromUrlSearchParams = urlSearchParams.get('page');
-  const [requestedPage, setRequestedPage] = useState<number | undefined>(requestedPageFromUrlSearchParams && !isNaN(parseInt(requestedPageFromUrlSearchParams)) ? parseInt(requestedPageFromUrlSearchParams) : undefined);
-  const [paginationState, setPaginationState] = useState<PaginationState | undefined>(undefined);
+  const [requestedPage, setRequestedPage] = useState<number | undefined>(
+    requestedPageFromUrlSearchParams &&
+      !isNaN(parseInt(requestedPageFromUrlSearchParams))
+      ? parseInt(requestedPageFromUrlSearchParams)
+      : undefined
+  );
+  const [paginationState, setPaginationState] = useState<
+    PaginationState | undefined
+  >(undefined);
 
   const handleQueryChange: InputBaseProps['onChange'] = (e) => {
     const { value } = e.target;
     setQuery(value);
   };
-  const handleNewSearch = (): void => {
+  const handleNewSearch = useCallback(() => {
     queryRef.current = query;
     if (requestedPage === undefined || requestedPage === 1) {
       navigate(`/?q=${encodeURIComponent(query)}`);
-      fetch(`/.netlify/functions/github-users-search?q=${encodeURIComponent(query)}&first=${USERS_PER_PAGE}`)
+      fetch(
+        `/.netlify/functions/github-users-search?q=${encodeURIComponent(
+          query
+        )}&first=${USERS_PER_PAGE}`
+      )
         .then((res) => res.json())
         .then((result: SearchResult) => {
           setSearchResult(result);
-          setPaginationState({ currentPage: 1, totalPages: parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1 });
+          setPaginationState({
+            currentPage: 1,
+            totalPages:
+              parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
+          });
         });
     }
-  };
-  const memoizedHandleNewSearch = useCallback(() => handleNewSearch(), [handleNewSearch]);
+  }, [navigate, query, requestedPage]);
   useEffect(() => {
     if (isFirstRender.current && query) {
       isFirstRender.current = false;
-      memoizedHandleNewSearch();
+      handleNewSearch();
     }
-  }, [isFirstRender, memoizedHandleNewSearch, query]);
+  }, [isFirstRender, handleNewSearch, query]);
   useEffect(() => {
     if (!searchResult || !paginationState || !requestedPage) {
       return;
     }
-    if (requestedPage === paginationState.currentPage + 1) {
-      fetch(`/.netlify/functions/github-users-search?q=${encodeURIComponent(query)}&first=${USERS_PER_PAGE}&after=${searchResult.data.pageInfo.endCursor}`)
+    setPaginationState({
+      ...paginationState,
+      currentPage: requestedPage,
+    });
+    const { currentPage, totalPages } = paginationState;
+    const pageShift = requestedPage - currentPage;
+    if (pageShift > 1 && currentPage + pageShift <= totalPages) {
+      fetchNewCursor(
+        query,
+        USERS_PER_PAGE * (pageShift - 1),
+        searchResult.data.pageInfo.endCursor
+      ).then((cursor) => {
+        return fetch(
+          `/.netlify/functions/github-users-search?q=${encodeURIComponent(
+            query
+          )}&first=${USERS_PER_PAGE}&after=${cursor}`
+        )
+          .then((res) => res.json())
+          .then((result: SearchResult) => {
+            setSearchResult(result);
+            setPaginationState({
+              currentPage: requestedPage,
+              totalPages:
+                parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
+            });
+            setRequestedPage(undefined);
+          });
+      });
+    }
+    if (pageShift < -1 && currentPage + pageShift > 0) {
+      fetchNewCursor(
+        query,
+        USERS_PER_PAGE * (pageShift + 1),
+        searchResult.data.pageInfo.startCursor
+      ).then((cursor) => {
+        return fetch(
+          `/.netlify/functions/github-users-search?q=${encodeURIComponent(
+            query
+          )}&last=${USERS_PER_PAGE}&before=${cursor}`
+        )
+          .then((res) => res.json())
+          .then((result: SearchResult) => {
+            setSearchResult(result);
+            setPaginationState({
+              currentPage: requestedPage,
+              totalPages:
+                parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
+            });
+            setRequestedPage(undefined);
+          });
+      });
+    }
+    if (pageShift === 1) {
+      fetch(
+        `/.netlify/functions/github-users-search?q=${encodeURIComponent(
+          query
+        )}&first=${USERS_PER_PAGE}&after=${
+          searchResult.data.pageInfo.endCursor
+        }`
+      )
         .then((res) => res.json())
         .then((result: SearchResult) => {
           setSearchResult(result);
-          setPaginationState({ currentPage: requestedPage, totalPages: parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1 });
+          setPaginationState({
+            currentPage: requestedPage,
+            totalPages:
+              parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
+          });
           setRequestedPage(undefined);
         });
       return;
     }
-    if (requestedPage === paginationState.currentPage - 1) {
-      fetch(`/.netlify/functions/github-users-search?q=${encodeURIComponent(query)}&last=${USERS_PER_PAGE}&before=${searchResult.data.pageInfo.startCursor}`)
+    if (pageShift === -1) {
+      fetch(
+        `/.netlify/functions/github-users-search?q=${encodeURIComponent(
+          query
+        )}&last=${USERS_PER_PAGE}&before=${
+          searchResult.data.pageInfo.startCursor
+        }`
+      )
         .then((res) => res.json())
         .then((result: SearchResult) => {
           setSearchResult(result);
-          setPaginationState({ currentPage: requestedPage, totalPages: parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1 });
+          setPaginationState({
+            currentPage: requestedPage,
+            totalPages:
+              parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
+          });
           setRequestedPage(undefined);
         });
       return;
     }
-  }, [requestedPage, searchResult, paginationState]);
+  }, [query, requestedPage, searchResult, paginationState]);
   const queryHasChanged = query !== queryRef.current;
 
   return (
     <div className="app">
       <div className="search-view">
-        <header><h1>Search GitHub users</h1></header>
+        <header>
+          <h1>Search GitHub users</h1>
+        </header>
         <Paper
           component="form"
           sx={{
@@ -123,7 +279,10 @@ const Home = () => {
             type="submit"
             sx={{ p: '10px' }}
             aria-label="search"
-            onClick={e => { e.preventDefault(); handleNewSearch() }}
+            onClick={(e) => {
+              e.preventDefault();
+              handleNewSearch();
+            }}
             disabled={!(query && queryHasChanged)}
           >
             <SearchIcon />
@@ -132,27 +291,34 @@ const Home = () => {
         {searchResult && (
           <>
             <div className="search-total">
-              Found {searchResult.data.userCount} {searchResult.data.userCount === 1 ? 'user' : 'users'}
+              Found {searchResult.data.userCount}{' '}
+              {searchResult.data.userCount === 1 ? 'user' : 'users'}
             </div>
             <div className="search-items">
               <ul className="search-items-list">
                 {searchResult.data.users.map((item: User) => (
-                  <li key={item.id}><UserCard {...item} /></li>
+                  <li key={item.id}>
+                    <UserCard {...item} />
+                  </li>
                 ))}
               </ul>
             </div>
-            {
-              paginationState &&
-              <Pagination className="search-pagination" count={paginationState.totalPages} page={paginationState.currentPage} onChange={(event, page) => {
-                setRequestedPage(page);
-              }} />
-            }
+            {paginationState && (
+              <Pagination
+                className="search-pagination"
+                count={paginationState.totalPages}
+                page={paginationState.currentPage}
+                onChange={(event, page) => {
+                  setRequestedPage(page);
+                }}
+              />
+            )}
           </>
         )}
       </div>
     </div>
   );
-}
+};
 
 interface User {
   avatarUrl: string;
@@ -167,23 +333,48 @@ interface User {
   url: string;
 }
 
-const UserCard = ({ avatarUrl, bioHTML, email, followers, following, login, name, starredRepositories, url }: User) => (
+const UserCard = ({
+  avatarUrl,
+  bioHTML,
+  email,
+  followers,
+  following,
+  login,
+  name,
+  starredRepositories,
+  url,
+}: User) => (
   <div className="user-card">
     <div className="user-card-minimal-info">
       <div className="user-card-minimal-info-avatar-container">
-        <img className="user-card-minimal-info-avatar-img" src={avatarUrl} alt="avatar" />
+        <img
+          className="user-card-minimal-info-avatar-img"
+          src={avatarUrl}
+          alt="avatar"
+        />
       </div>
-      <div className="user-card-minimal-info-login"><a href={url}>{login}</a></div>
+      <div className="user-card-minimal-info-login">
+        <a href={url}>{login}</a>
+      </div>
     </div>
     <div className="user-card-main-info">
-      <div className="user-card-main-info-name"><h4>{name}</h4></div>
-      <div className="user-card-main-info-bio" dangerouslySetInnerHTML={{ __html: bioHTML }} />
-      <div className="user-card-main-info-email"><a href={`mailto:${email}`}>{email}</a></div>
+      <div className="user-card-main-info-name">
+        <h4>{name}</h4>
+      </div>
+      <div
+        className="user-card-main-info-bio"
+        dangerouslySetInnerHTML={{ __html: bioHTML }}
+      />
+      <div className="user-card-main-info-email">
+        <a href={`mailto:${email}`}>{email}</a>
+      </div>
     </div>
     <div className="user-card-counts">
       <div className="user-card-counts-followers">Followers: {followers}</div>
       <div className="user-card-counts-following">Following: {following}</div>
-      <div className="user-card-counts-starredRepositories">Starred: {starredRepositories}</div>
+      <div className="user-card-counts-starredRepositories">
+        Starred: {starredRepositories}
+      </div>
     </div>
   </div>
-)
+);
