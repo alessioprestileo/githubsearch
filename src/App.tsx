@@ -114,50 +114,66 @@ const Home = () => {
     undefined
   );
   const requestedPageFromUrlSearchParams = urlSearchParams.get('page');
-  const [requestedPage, setRequestedPage] = useState<number | undefined>(
+  const parsedRequestedPageFromUrlSearchParams = useRef(
     requestedPageFromUrlSearchParams &&
       !isNaN(parseInt(requestedPageFromUrlSearchParams))
       ? parseInt(requestedPageFromUrlSearchParams)
       : undefined
   );
+  const [requestedPage, setRequestedPage] = useState<number | undefined>(
+    parsedRequestedPageFromUrlSearchParams.current
+  );
   const [paginationState, setPaginationState] = useState<
     PaginationState | undefined
   >(undefined);
+  const [isFetching, setIsFecthing] = useState(false);
 
   const handleQueryChange: InputBaseProps['onChange'] = (e) => {
     const { value } = e.target;
     setQuery(value);
   };
   const handleNewSearch = useCallback(() => {
-    queryRef.current = query;
-    if (requestedPage === undefined || requestedPage === 1) {
-      navigate(`/?q=${encodeURIComponent(query)}`);
-      fetch(
+    const fn = async () => {
+      queryRef.current = query;
+
+      const result: SearchResult = await fetch(
         `/.netlify/functions/github-users-search?q=${encodeURIComponent(
           query
         )}&first=${USERS_PER_PAGE}`
-      )
-        .then((res) => res.json())
-        .then((result: SearchResult) => {
-          setSearchResult(result);
-          setPaginationState({
-            currentPage: 1,
-            totalPages:
-              parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
-          });
-        });
-    }
-  }, [navigate, query, requestedPage]);
+      ).then((res) => res.json());
+
+      setSearchResult(result);
+      setPaginationState({
+        currentPage: 1,
+        totalPages:
+          parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
+      });
+    };
+    fn();
+  }, [query]);
+
   useEffect(() => {
-    if (isFirstRender.current && query) {
-      isFirstRender.current = false;
-      handleNewSearch();
-    }
-  }, [isFirstRender, handleNewSearch, query]);
-  useEffect(() => {
-    if (!searchResult || !paginationState || !requestedPage) {
+    if (!searchResult || !paginationState) {
+      if (!isFetching) {
+        setIsFecthing(true);
+        handleNewSearch();
+      }
       return;
     }
+
+    if (!requestedPage) {
+      setIsFecthing(false);
+    }
+
+    if (isFirstRender.current && requestedPage === 1) {
+      isFirstRender.current = false;
+      setIsFecthing(false);
+    }
+
+    if (!requestedPage || requestedPage === paginationState.currentPage) {
+      return;
+    }
+
     setPaginationState({
       ...paginationState,
       currentPage: requestedPage,
@@ -184,6 +200,7 @@ const Home = () => {
                 parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
             });
             setRequestedPage(undefined);
+            setIsFecthing(false);
           });
       });
     }
@@ -207,6 +224,7 @@ const Home = () => {
                 parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
             });
             setRequestedPage(undefined);
+            setIsFecthing(false);
           });
       });
     }
@@ -227,6 +245,7 @@ const Home = () => {
               parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
           });
           setRequestedPage(undefined);
+          setIsFecthing(false);
         });
       return;
     }
@@ -247,10 +266,18 @@ const Home = () => {
               parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
           });
           setRequestedPage(undefined);
+          setIsFecthing(false);
         });
       return;
     }
-  }, [query, requestedPage, searchResult, paginationState]);
+  }, [
+    query,
+    requestedPage,
+    searchResult,
+    paginationState,
+    handleNewSearch,
+    isFetching,
+  ]);
   const queryHasChanged = query !== queryRef.current;
 
   return (
@@ -281,6 +308,11 @@ const Home = () => {
             aria-label="search"
             onClick={(e) => {
               e.preventDefault();
+              navigate(`/?q=${encodeURIComponent(query)}`);
+              setIsFecthing(true);
+              setPaginationState(undefined);
+              setSearchResult(undefined);
+              setRequestedPage(undefined);
               handleNewSearch();
             }}
             disabled={!(query && queryHasChanged)}
@@ -288,6 +320,7 @@ const Home = () => {
             <SearchIcon />
           </IconButton>
         </Paper>
+        {!searchResult && isFetching && <h3>FETCHING...</h3>}
         {searchResult && (
           <>
             <div className="search-total">
@@ -295,13 +328,16 @@ const Home = () => {
               {searchResult.data.userCount === 1 ? 'user' : 'users'}
             </div>
             <div className="search-items">
-              <ul className="search-items-list">
-                {searchResult.data.users.map((item: User) => (
-                  <li key={item.id}>
-                    <UserCard {...item} />
-                  </li>
-                ))}
-              </ul>
+              {isFetching && <h3>FETCHING...</h3>}
+              {!isFetching && (
+                <ul className="search-items-list">
+                  {searchResult.data.users.map((item: User) => (
+                    <li key={item.id}>
+                      <UserCard {...item} />
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             {paginationState && (
               <Pagination
@@ -309,6 +345,8 @@ const Home = () => {
                 count={paginationState.totalPages}
                 page={paginationState.currentPage}
                 onChange={(event, page) => {
+                  setIsFecthing(true);
+                  navigate(`/?q=${encodeURIComponent(query)}&page=${page}`);
                   setRequestedPage(page);
                 }}
               />
