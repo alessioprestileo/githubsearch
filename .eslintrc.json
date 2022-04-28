@@ -1,0 +1,16 @@
+{
+  "extends": [
+    "react-app"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "cypress/*/**"
+      ],
+      "rules": {
+        "no-undef": "off",
+        "no-unused-expressions": "off"
+      }
+    }
+  ]
+}
