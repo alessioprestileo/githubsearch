@@ -12,83 +12,27 @@
   height: 100%;
 }
 
-.search-total {
+.search-result-total {
   margin-top: 10px;
 }
 
-.search-items {
+.search-result-items {
   display: flex;
   flex-grow: 1;
-  overflow: scroll;
+  overflow-x: hidden;
+  overflow-y: auto;
   margin-top: 15px;
   border-top: 1px solid gray;
   border-bottom: 1px solid gray;
+  padding: 10px;
 }
 
-.search-items-list {
+.search-result-items-list {
   list-style: none;
   margin: 0;
+  padding: 0;
 }
 
-.user-card {
-  display: flex;
-  border: 1px solid grey;
-  border-radius: 10px;
-  justify-content: space-between;
-  align-items: center;
-  margin: 10px;
-  padding: 10px;
-  width: 750px;
-  height: 120px;
-}
-
-.user-card-minimal-info-avatar-container {
-  border-radius: 60px;
-  border: 1px solid;
-  display: flex;
-  height: 60px;
-  overflow: hidden;
-  width: 60px;
-}
-
-.user-card-minimal-info {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  width: 15%;
-}
-
-.user-card-minimal-info-login {
-  word-wrap: anywhere;
-}
-
-.user-card-main-info {
-  align-items: flex-start;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  padding: 0 10px;
-  width: 70%;
-  max-width: 400px;
-}
-
-.user-card-main-info-email {
-  margin-top: 10px;
-}
-
-.user-card-main-info-name h4 {
-  margin: 0 0 10px 0;
-}
-
-.user-card-counts {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  width: 17%;
-}
-
-.search-pagination {
+.search-result-pagination {
   margin: 15px 0;
 }

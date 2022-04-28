@@ -11,6 +11,7 @@ import SearchIcon from '@mui/icons-material/Search';
 
 import './App.css';
 import { Pagination } from '@mui/material';
+import { User, UserCard } from './UserCard';
 
 export const App = () => (
   <Router>
@@ -154,7 +155,7 @@ const Home = () => {
 
   useEffect(() => {
     if (!searchResult || !paginationState) {
-      if (!isFetching) {
+      if (!isFetching && query && query === urlSearchParams.get('q')) {
         setIsFecthing(true);
         handleNewSearch();
       }
@@ -174,10 +175,6 @@ const Home = () => {
       return;
     }
 
-    setPaginationState({
-      ...paginationState,
-      currentPage: requestedPage,
-    });
     const { currentPage, totalPages } = paginationState;
     const pageShift = requestedPage - currentPage;
     if (pageShift > 1 && currentPage + pageShift <= totalPages) {
@@ -199,7 +196,6 @@ const Home = () => {
               totalPages:
                 parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
             });
-            setRequestedPage(undefined);
             setIsFecthing(false);
           });
       });
@@ -223,7 +219,6 @@ const Home = () => {
               totalPages:
                 parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
             });
-            setRequestedPage(undefined);
             setIsFecthing(false);
           });
       });
@@ -244,7 +239,6 @@ const Home = () => {
             totalPages:
               parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
           });
-          setRequestedPage(undefined);
           setIsFecthing(false);
         });
       return;
@@ -265,7 +259,6 @@ const Home = () => {
             totalPages:
               parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
           });
-          setRequestedPage(undefined);
           setIsFecthing(false);
         });
       return;
@@ -277,6 +270,7 @@ const Home = () => {
     paginationState,
     handleNewSearch,
     isFetching,
+    urlSearchParams,
   ]);
   const queryHasChanged = query !== queryRef.current;
 
@@ -284,15 +278,24 @@ const Home = () => {
     <div className="app">
       <div className="search-view">
         <header>
-          <h1>Search GitHub users</h1>
+          <h1 data-test-id="header-title">Search GitHub Users</h1>
         </header>
         <Paper
+          data-test-id="search-box"
           component="form"
           sx={{
             p: '2px 4px',
             display: 'flex',
             alignItems: 'center',
             width: 600,
+          }}
+          onSubmit={(e: React.FormEvent) => {
+            e.preventDefault();
+            navigate(`/?q=${encodeURIComponent(query)}`);
+            setIsFecthing(true);
+            setPaginationState(undefined);
+            setSearchResult(undefined);
+            handleNewSearch();
           }}
         >
           <InputBase
@@ -306,31 +309,45 @@ const Home = () => {
             type="submit"
             sx={{ p: '10px' }}
             aria-label="search"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate(`/?q=${encodeURIComponent(query)}`);
-              setIsFecthing(true);
-              setPaginationState(undefined);
-              setSearchResult(undefined);
-              setRequestedPage(undefined);
-              handleNewSearch();
-            }}
             disabled={!(query && queryHasChanged)}
           >
             <SearchIcon />
           </IconButton>
         </Paper>
-        {!searchResult && isFetching && <h3>FETCHING...</h3>}
+        {!searchResult && isFetching && (
+          <h3
+            className="search-result-fetching"
+            data-test-id="search-result-fetching"
+          >
+            FETCHING...
+          </h3>
+        )}
         {searchResult && (
           <>
-            <div className="search-total">
+            <div
+              className="search-result-total"
+              data-test-id="search-result-total"
+            >
               Found {searchResult.data.userCount}{' '}
               {searchResult.data.userCount === 1 ? 'user' : 'users'}
             </div>
-            <div className="search-items">
-              {isFetching && <h3>FETCHING...</h3>}
+            <div
+              className="search-result-items"
+              data-test-id="search-result-items"
+            >
+              {isFetching && (
+                <h3
+                  className="search-result-items-fetching"
+                  data-test-id="search-result-items-fetching"
+                >
+                  FETCHING...
+                </h3>
+              )}
               {!isFetching && (
-                <ul className="search-items-list">
+                <ul
+                  className="search-result-items-list"
+                  data-test-id="search-result-items-list"
+                >
                   {searchResult.data.users.map((item: User) => (
                     <li key={item.id}>
                       <UserCard {...item} />
@@ -341,9 +358,10 @@ const Home = () => {
             </div>
             {paginationState && (
               <Pagination
-                className="search-pagination"
+                className="search-result-pagination"
+                data-test-id="search-result-pagination"
                 count={paginationState.totalPages}
-                page={paginationState.currentPage}
+                page={requestedPage}
                 onChange={(event, page) => {
                   setIsFecthing(true);
                   navigate(`/?q=${encodeURIComponent(query)}&page=${page}`);
@@ -357,62 +375,3 @@ const Home = () => {
     </div>
   );
 };
-
-interface User {
-  avatarUrl: string;
-  bioHTML: string;
-  email: string;
-  followers: number;
-  following: number;
-  id: string;
-  login: string;
-  name: string;
-  starredRepositories: number;
-  url: string;
-}
-
-const UserCard = ({
-  avatarUrl,
-  bioHTML,
-  email,
-  followers,
-  following,
-  login,
-  name,
-  starredRepositories,
-  url,
-}: User) => (
-  <div className="user-card">
-    <div className="user-card-minimal-info">
-      <div className="user-card-minimal-info-avatar-container">
-        <img
-          className="user-card-minimal-info-avatar-img"
-          src={avatarUrl}
-          alt="avatar"
-        />
-      </div>
-      <div className="user-card-minimal-info-login">
-        <a href={url}>{login}</a>
-      </div>
-    </div>
-    <div className="user-card-main-info">
-      <div className="user-card-main-info-name">
-        <h4>{name}</h4>
-      </div>
-      <div
-        className="user-card-main-info-bio"
-        dangerouslySetInnerHTML={{ __html: bioHTML }}
-      />
-      <div className="user-card-main-info-email">
-        <a href={`mailto:${email}`}>{email}</a>
-      </div>
-    </div>
-    <div className="user-card-counts">
-      <div className="user-card-counts-followers">Followers: {followers}</div>
-      <div className="user-card-counts-following">Following: {following}</div>
-      <div className="user-card-counts-starredRepositories">
-        Starred: {starredRepositories}
-      </div>
-    </div>
-  </div>
-);
