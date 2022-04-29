@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useReducer, useRef } from 'react';
 import {
   BrowserRouter as Router,
   useLocation,
@@ -101,178 +101,338 @@ interface SearchResult {
 }
 
 interface PaginationState {
+  shiftingStatus: 'IDLE' | 'REQUESTED' | 'IN_PROGRESS';
   currentPage: number;
-  totalPages: number;
+  requestedPage: number;
 }
+
+interface SearchState {
+  fetchingStatus:
+    | 'IDLE'
+    | 'REQUESTED'
+    | 'IN_PROGRESS'
+    | 'IDLE_PAGINATION_NEEDED';
+  query: string | undefined;
+  result: SearchResult | undefined;
+}
+
+interface State {
+  pagination: PaginationState;
+  search: SearchState;
+}
+
+interface FetchNewQueryRequested {
+  type: 'FETCH_NEW_QUERY__REQUESTED';
+  payload: { query: string };
+}
+interface FetchNewQueryStarted {
+  type: 'FETCH_NEW_QUERY__STARTED';
+}
+
+interface FetchNewQuerySuccess {
+  type: 'FETCH_NEW_QUERY__SUCCESS';
+  payload: {
+    result: SearchResult;
+    paginationNeeded?: boolean;
+    setFirstPage?: boolean;
+  };
+}
+
+interface ShiftPageRequested {
+  type: 'SHIFT_PAGE__REQUESTED';
+  payload: { shift: number };
+}
+
+interface ShiftPageStarted {
+  type: 'SHIFT_PAGE__STARTED';
+}
+
+interface ShiftPageSuccess {
+  type: 'SHIFT_PAGE__SUCCESS';
+}
+
+interface QueryUpdated {
+  type: 'QUERY_UPDATED';
+  payload: { query: string };
+}
+
+type Action =
+  | FetchNewQueryRequested
+  | FetchNewQueryStarted
+  | FetchNewQuerySuccess
+  | ShiftPageRequested
+  | ShiftPageStarted
+  | ShiftPageSuccess
+  | QueryUpdated;
+
+const initialPagination: PaginationState = {
+  currentPage: 0,
+  shiftingStatus: 'IDLE',
+  requestedPage: 0,
+};
+
+const initialSearch: SearchState = {
+  fetchingStatus: 'IDLE',
+  query: undefined,
+  result: undefined,
+};
+
+const initialState: State = {
+  search: initialSearch,
+  pagination: initialPagination,
+};
+
+const getTotalPages = (userCount: number): number =>
+  parseInt(String(userCount / USERS_PER_PAGE)) + 1;
+
+const reducer: React.Reducer<State, Action> = (state, action) => {
+  const { pagination, search } = state;
+
+  switch (action.type) {
+    case 'FETCH_NEW_QUERY__REQUESTED': {
+      const { query } = action.payload;
+      return {
+        pagination: { ...pagination, currentPage: 1, requestedPage: 1 },
+        search: { ...search, fetchingStatus: 'REQUESTED', query },
+      };
+    }
+
+    case 'FETCH_NEW_QUERY__STARTED': {
+      return {
+        ...state,
+        search: { ...search, fetchingStatus: 'IN_PROGRESS' },
+      };
+    }
+
+    case 'FETCH_NEW_QUERY__SUCCESS': {
+      const { result, setFirstPage, paginationNeeded } = action.payload;
+      if (setFirstPage) {
+        return {
+          pagination: { ...pagination, currentPage: 1, requestedPage: 1 },
+          search: { ...search, fetchingStatus: 'IDLE', result },
+        };
+      }
+      if (paginationNeeded) {
+        return {
+          ...state,
+          search: {
+            ...search,
+            fetchingStatus: 'IDLE_PAGINATION_NEEDED',
+            result,
+          },
+        };
+      }
+      return {
+        ...state,
+        search: { ...search, fetchingStatus: 'IDLE', result },
+      };
+    }
+
+    case 'SHIFT_PAGE__REQUESTED': {
+      const { shift } = action.payload;
+
+      return {
+        ...state,
+        pagination: {
+          ...pagination,
+          shiftingStatus: 'REQUESTED',
+          requestedPage: pagination.currentPage + shift,
+        },
+      };
+    }
+
+    case 'SHIFT_PAGE__STARTED': {
+      return {
+        ...state,
+        pagination: {
+          ...pagination,
+          shiftingStatus: 'IN_PROGRESS',
+        },
+      };
+    }
+
+    case 'SHIFT_PAGE__SUCCESS': {
+      if (search.fetchingStatus === 'IDLE_PAGINATION_NEEDED') {
+        return {
+          pagination: {
+            ...pagination,
+            shiftingStatus: 'IDLE',
+            currentPage: pagination.requestedPage,
+          },
+          search: { ...state.search, fetchingStatus: 'IDLE' },
+        };
+      }
+      return {
+        ...state,
+        pagination: {
+          ...pagination,
+          shiftingStatus: 'IDLE',
+          currentPage: pagination.requestedPage,
+        },
+      };
+    }
+
+    case 'QUERY_UPDATED': {
+      const { query } = action.payload;
+      return { ...state, search: { ...state.search, query } };
+    }
+  }
+};
+
+const performForwardSearch = (
+  query: string,
+  after?: string
+): Promise<SearchResult> =>
+  fetch(
+    `/.netlify/functions/github-users-search?q=${encodeURIComponent(
+      query
+    )}&first=${USERS_PER_PAGE}${`${after ? `&after=${after}` : ''}`}`
+  ).then((res) => res.json());
+
+const performBackwardsSearch = (
+  query: string,
+  before: string
+): Promise<SearchResult> =>
+  fetch(
+    `/.netlify/functions/github-users-search?q=${encodeURIComponent(
+      query
+    )}&last=${USERS_PER_PAGE}&before=${before}`
+  ).then((res) => res.json());
 
 const Home = () => {
   const isFirstRender = useRef(true);
-  const urlSearchParams = useUrlSearchParams();
   const navigate = useNavigate();
-  const [query, setQuery] = useState<string>(urlSearchParams.get('q') || '');
-  const queryRef = useRef(query);
-  const [searchResult, setSearchResult] = useState<SearchResult | undefined>(
-    undefined
-  );
+  const [state, dispatch] = useReducer(reducer, initialState);
+
+  const urlSearchParams = useUrlSearchParams();
   const requestedPageFromUrlSearchParams = urlSearchParams.get('page');
-  const parsedRequestedPageFromUrlSearchParams = useRef(
+  const initialRequestedPageFromUrlSearchParams = useRef(
     requestedPageFromUrlSearchParams &&
       !isNaN(parseInt(requestedPageFromUrlSearchParams))
       ? parseInt(requestedPageFromUrlSearchParams)
       : undefined
   );
-  const [requestedPage, setRequestedPage] = useState<number | undefined>(
-    parsedRequestedPageFromUrlSearchParams.current
+  const initialQueryFromUrlParams = useRef(
+    urlSearchParams.get('q') || undefined
   );
-  const [paginationState, setPaginationState] = useState<
-    PaginationState | undefined
-  >(undefined);
-  const [isFetching, setIsFecthing] = useState(false);
+  const previousSubmittedQuery = useRef<string | undefined>(undefined);
 
   const handleQueryChange: InputBaseProps['onChange'] = (e) => {
-    const { value } = e.target;
-    setQuery(value);
+    const { value: query } = e.target;
+    dispatch({ type: 'QUERY_UPDATED', payload: { query } });
   };
-  const handleNewSearch = useCallback(() => {
-    const fn = async () => {
-      queryRef.current = query;
-
-      const result: SearchResult = await fetch(
-        `/.netlify/functions/github-users-search?q=${encodeURIComponent(
-          query
-        )}&first=${USERS_PER_PAGE}`
-      ).then((res) => res.json());
-
-      setSearchResult(result);
-      setPaginationState({
-        currentPage: 1,
-        totalPages:
-          parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
-      });
-    };
-    fn();
-  }, [query]);
 
   useEffect(() => {
-    if (!searchResult || !paginationState) {
-      if (!isFetching && query && query === urlSearchParams.get('q')) {
-        setIsFecthing(true);
-        handleNewSearch();
-      }
-      return;
-    }
-
-    if (!requestedPage) {
-      setIsFecthing(false);
-    }
-
-    if (isFirstRender.current && requestedPage === 1) {
+    const {
+      pagination: { shiftingStatus },
+      search: { fetchingStatus, query },
+    } = state;
+    if (isFirstRender.current && !query && initialQueryFromUrlParams.current) {
       isFirstRender.current = false;
-      setIsFecthing(false);
+      if (fetchingStatus === 'IDLE' && shiftingStatus === 'IDLE') {
+        previousSubmittedQuery.current = query;
+        dispatch({
+          type: 'FETCH_NEW_QUERY__REQUESTED',
+          payload: { query: initialQueryFromUrlParams.current },
+        });
+        dispatch({ type: 'FETCH_NEW_QUERY__STARTED' });
+        performForwardSearch(initialQueryFromUrlParams.current).then(
+          (result) => {
+            if (
+              !initialRequestedPageFromUrlSearchParams.current ||
+              initialRequestedPageFromUrlSearchParams.current <= 1
+            ) {
+              dispatch({
+                type: 'FETCH_NEW_QUERY__SUCCESS',
+                payload: { result, setFirstPage: true },
+              });
+            } else {
+              dispatch({
+                type: 'FETCH_NEW_QUERY__SUCCESS',
+                payload: { result, paginationNeeded: true },
+              });
+              dispatch({
+                type: 'SHIFT_PAGE__REQUESTED',
+                payload: {
+                  shift: initialRequestedPageFromUrlSearchParams.current - 1,
+                },
+              });
+            }
+          }
+        );
+      }
+    }
+  }, [state]);
+
+  useEffect(() => {
+    const {
+      pagination: { currentPage, shiftingStatus, requestedPage },
+      search: { fetchingStatus, query, result },
+    } = state;
+
+    if (query && fetchingStatus === 'REQUESTED' && shiftingStatus === 'IDLE') {
+      dispatch({ type: 'FETCH_NEW_QUERY__STARTED' });
+      performForwardSearch(query).then((result) => {
+        dispatch({ type: 'FETCH_NEW_QUERY__SUCCESS', payload: { result } });
+        dispatch({ type: 'SHIFT_PAGE__SUCCESS' });
+      });
+
+      return;
     }
 
-    if (!requestedPage || requestedPage === paginationState.currentPage) {
-      return;
+    if (
+      query &&
+      result &&
+      shiftingStatus === 'REQUESTED' &&
+      (fetchingStatus === 'IDLE' || fetchingStatus === 'IDLE_PAGINATION_NEEDED')
+    ) {
+      dispatch({ type: 'SHIFT_PAGE__STARTED' });
+      const shift = requestedPage - currentPage;
+      const {
+        pageInfo: { endCursor, startCursor },
+        userCount,
+      } = result.data;
+      if (shift === 1) {
+        performForwardSearch(query, endCursor).then((result) => {
+          dispatch({ type: 'FETCH_NEW_QUERY__SUCCESS', payload: { result } });
+          dispatch({ type: 'SHIFT_PAGE__SUCCESS' });
+        });
+      } else if (shift === -1) {
+        performBackwardsSearch(query, startCursor).then((result) => {
+          dispatch({ type: 'FETCH_NEW_QUERY__SUCCESS', payload: { result } });
+          dispatch({ type: 'SHIFT_PAGE__SUCCESS' });
+        });
+      } else if (shift > 1 && currentPage + shift <= getTotalPages(userCount)) {
+        fetchNewCursor(query, USERS_PER_PAGE * (shift - 1), endCursor).then(
+          async (cursor) => {
+            const result = await performForwardSearch(query, cursor);
+            dispatch({ type: 'FETCH_NEW_QUERY__SUCCESS', payload: { result } });
+            dispatch({ type: 'SHIFT_PAGE__SUCCESS' });
+          }
+        );
+      } else if (shift < -1 && currentPage + shift >= 1) {
+        fetchNewCursor(query, USERS_PER_PAGE * (shift + 1), startCursor).then(
+          async (cursor) => {
+            performBackwardsSearch(query, cursor).then((result) => {
+              dispatch({
+                type: 'FETCH_NEW_QUERY__SUCCESS',
+                payload: { result },
+              });
+              dispatch({ type: 'SHIFT_PAGE__SUCCESS' });
+            });
+          }
+        );
+      }
     }
+  }, [state]);
 
-    const { currentPage, totalPages } = paginationState;
-    const pageShift = requestedPage - currentPage;
-    if (pageShift > 1 && currentPage + pageShift <= totalPages) {
-      fetchNewCursor(
-        query,
-        USERS_PER_PAGE * (pageShift - 1),
-        searchResult.data.pageInfo.endCursor
-      ).then((cursor) => {
-        return fetch(
-          `/.netlify/functions/github-users-search?q=${encodeURIComponent(
-            query
-          )}&first=${USERS_PER_PAGE}&after=${cursor}`
-        )
-          .then((res) => res.json())
-          .then((result: SearchResult) => {
-            setSearchResult(result);
-            setPaginationState({
-              currentPage: requestedPage,
-              totalPages:
-                parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
-            });
-            setIsFecthing(false);
-          });
-      });
-    }
-    if (pageShift < -1 && currentPage + pageShift > 0) {
-      fetchNewCursor(
-        query,
-        USERS_PER_PAGE * (pageShift + 1),
-        searchResult.data.pageInfo.startCursor
-      ).then((cursor) => {
-        return fetch(
-          `/.netlify/functions/github-users-search?q=${encodeURIComponent(
-            query
-          )}&last=${USERS_PER_PAGE}&before=${cursor}`
-        )
-          .then((res) => res.json())
-          .then((result: SearchResult) => {
-            setSearchResult(result);
-            setPaginationState({
-              currentPage: requestedPage,
-              totalPages:
-                parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
-            });
-            setIsFecthing(false);
-          });
-      });
-    }
-    if (pageShift === 1) {
-      fetch(
-        `/.netlify/functions/github-users-search?q=${encodeURIComponent(
-          query
-        )}&first=${USERS_PER_PAGE}&after=${
-          searchResult.data.pageInfo.endCursor
-        }`
-      )
-        .then((res) => res.json())
-        .then((result: SearchResult) => {
-          setSearchResult(result);
-          setPaginationState({
-            currentPage: requestedPage,
-            totalPages:
-              parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
-          });
-          setIsFecthing(false);
-        });
-      return;
-    }
-    if (pageShift === -1) {
-      fetch(
-        `/.netlify/functions/github-users-search?q=${encodeURIComponent(
-          query
-        )}&last=${USERS_PER_PAGE}&before=${
-          searchResult.data.pageInfo.startCursor
-        }`
-      )
-        .then((res) => res.json())
-        .then((result: SearchResult) => {
-          setSearchResult(result);
-          setPaginationState({
-            currentPage: requestedPage,
-            totalPages:
-              parseInt(String(result.data.userCount / USERS_PER_PAGE)) + 1,
-          });
-          setIsFecthing(false);
-        });
-      return;
-    }
-  }, [
-    query,
-    requestedPage,
-    searchResult,
-    paginationState,
-    handleNewSearch,
-    isFetching,
-    urlSearchParams,
-  ]);
-  const queryHasChanged = query !== queryRef.current;
+  const {
+    pagination: { currentPage, shiftingStatus, requestedPage },
+    search: { fetchingStatus, query, result },
+  } = state;
+  const queryHasChanged = query !== previousSubmittedQuery.current;
+  const showResultItemsList =
+    shiftingStatus === 'IDLE' && fetchingStatus !== 'IDLE_PAGINATION_NEEDED';
 
   return (
     <div className="app">
@@ -291,18 +451,19 @@ const Home = () => {
           }}
           onSubmit={(e: React.FormEvent) => {
             e.preventDefault();
-            navigate(`/?q=${encodeURIComponent(query)}`);
-            setIsFecthing(true);
-            setPaginationState(undefined);
-            setSearchResult(undefined);
-            handleNewSearch();
+            navigate(`/?q=${encodeURIComponent(query!)}`);
+            previousSubmittedQuery.current = query;
+            dispatch({
+              type: 'FETCH_NEW_QUERY__REQUESTED',
+              payload: { query: query! },
+            });
           }}
         >
           <InputBase
             sx={{ ml: 1, flex: 1 }}
             placeholder="Search GitHub"
             inputProps={{ 'aria-label': 'search github' }}
-            value={query}
+            value={query || ''}
             onChange={handleQueryChange}
           />
           <IconButton
@@ -314,62 +475,68 @@ const Home = () => {
             <SearchIcon />
           </IconButton>
         </Paper>
-        {!searchResult && isFetching && (
+        {fetchingStatus === 'IN_PROGRESS' && shiftingStatus === 'IDLE' ? (
           <h3
             className="search-result-fetching"
             data-test-id="search-result-fetching"
           >
             FETCHING...
           </h3>
-        )}
-        {searchResult && (
-          <>
-            <div
-              className="search-result-total"
-              data-test-id="search-result-total"
-            >
-              Found {searchResult.data.userCount}{' '}
-              {searchResult.data.userCount === 1 ? 'user' : 'users'}
-            </div>
-            <div
-              className="search-result-items"
-              data-test-id="search-result-items"
-            >
-              {isFetching && (
-                <h3
-                  className="search-result-items-fetching"
-                  data-test-id="search-result-items-fetching"
-                >
-                  FETCHING...
-                </h3>
+        ) : (
+          result && (
+            <>
+              <div
+                className="search-result-total"
+                data-test-id="search-result-total"
+              >
+                Found {result.data.userCount}{' '}
+                {result.data.userCount === 1 ? 'user' : 'users'}
+              </div>
+              <div
+                className="search-result-items"
+                data-test-id="search-result-items"
+              >
+                {showResultItemsList ? (
+                  <ul
+                    className="search-result-items-list"
+                    data-test-id="search-result-items-list"
+                  >
+                    {result.data.users.map((item: User) => (
+                      <li key={item.id}>
+                        <UserCard {...item} />
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <h3
+                    className="search-result-items-fetching"
+                    data-test-id="search-result-items-fetching"
+                  >
+                    FETCHING...
+                  </h3>
+                )}
+              </div>
+              {requestedPage > 0 && (
+                <Pagination
+                  className="search-result-pagination"
+                  data-test-id="search-result-pagination"
+                  count={getTotalPages(result.data.userCount)}
+                  page={requestedPage}
+                  onChange={(event, page) => {
+                    navigate(
+                      `/?q=${encodeURIComponent(
+                        previousSubmittedQuery.current!
+                      )}&page=${page}`
+                    );
+                    dispatch({
+                      type: 'SHIFT_PAGE__REQUESTED',
+                      payload: { shift: page - currentPage },
+                    });
+                  }}
+                />
               )}
-              {!isFetching && (
-                <ul
-                  className="search-result-items-list"
-                  data-test-id="search-result-items-list"
-                >
-                  {searchResult.data.users.map((item: User) => (
-                    <li key={item.id}>
-                      <UserCard {...item} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            {paginationState && (
-              <Pagination
-                className="search-result-pagination"
-                data-test-id="search-result-pagination"
-                count={paginationState.totalPages}
-                page={requestedPage}
-                onChange={(event, page) => {
-                  setIsFecthing(true);
-                  navigate(`/?q=${encodeURIComponent(query)}&page=${page}`);
-                  setRequestedPage(page);
-                }}
-              />
-            )}
-          </>
+            </>
+          )
         )}
       </div>
     </div>

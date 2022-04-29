@@ -82,14 +82,14 @@ query($q:String!, $first:Int, $last:Int, $before:String, $after:String) {
   };
 
   try {
-    const { status, statusText, headers, data } = await axios(config);
+    const { status, statusText, headers: responseHeaders, data } = await axios(config);
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         status,
         statusText,
-        headers,
+        responseHeaders,
         data: data.data.search,
       }),
     };

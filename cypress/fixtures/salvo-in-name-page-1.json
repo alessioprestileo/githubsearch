@@ -1,7 +1,7 @@
 {
   "status": 200,
   "statusText": "OK",
-  "headers": {
+  "responseHeaders": {
     "server": "GitHub.com",
     "date": "Thu, 28 Apr 2022 12:33:26 GMT",
     "content-type": "application/json; charset=utf-8",

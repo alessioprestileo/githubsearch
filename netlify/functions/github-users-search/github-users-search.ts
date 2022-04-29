@@ -64,7 +64,7 @@ query($q:String!, $first:Int, $last:Int, $before:String, $after:String) {
     const {
       status,
       statusText,
-      headers,
+      headers: responseHeaders,
       data: {
         data: { search: rawSearch },
       },
@@ -84,7 +84,7 @@ query($q:String!, $first:Int, $last:Int, $before:String, $after:String) {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ status, statusText, headers, data }),
+      body: JSON.stringify({ status, statusText, responseHeaders, data }),
     };
   } catch (error) {
     return {

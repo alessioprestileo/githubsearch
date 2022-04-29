@@ -1,0 +1,159 @@
+{
+  "status": 200,
+  "statusText": "OK",
+  "responseHeaders": {
+    "server": "GitHub.com",
+    "date": "Fri, 29 Apr 2022 01:38:45 GMT",
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "3590",
+    "x-oauth-scopes": "read:user, user:email",
+    "x-accepted-oauth-scopes": "repo",
+    "github-authentication-token-expiration": "2022-06-23 19:04:36 UTC",
+    "x-github-media-type": "github.v4",
+    "x-ratelimit-limit": "5000",
+    "x-ratelimit-remaining": "4935",
+    "x-ratelimit-reset": "1651198971",
+    "x-ratelimit-used": "65",
+    "x-ratelimit-resource": "graphql",
+    "access-control-expose-headers": "ETag, Link, Location, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Used, X-RateLimit-Resource, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval, X-GitHub-Media-Type, X-GitHub-SSO, X-GitHub-Request-Id, Deprecation, Sunset",
+    "access-control-allow-origin": "*",
+    "strict-transport-security": "max-age=31536000; includeSubdomains; preload",
+    "x-frame-options": "deny",
+    "x-content-type-options": "nosniff",
+    "x-xss-protection": "0",
+    "referrer-policy": "origin-when-cross-origin, strict-origin-when-cross-origin",
+    "content-security-policy": "default-src 'none'",
+    "vary": "Accept-Encoding, Accept, X-Requested-With",
+    "x-github-request-id": "A5D4:A0BD:BA51E5:BD1CAB:626B41A5",
+    "connection": "close"
+  },
+  "data": {
+    "users": [
+      {
+        "followers": 0,
+        "following": 0,
+        "starredRepositories": 0,
+        "id": "MDQ6VXNlcjg0ODcwOTg3",
+        "login": "Disalvu",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/84870987?v=4",
+        "bioHTML": "",
+        "email": "",
+        "name": "Vinicius de salvo martins",
+        "url": "https://github.com/Disalvu"
+      },
+      {
+        "followers": 0,
+        "following": 0,
+        "starredRepositories": 0,
+        "id": "U_kgDOBhTq5A",
+        "login": "a153286",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/102034148?v=4",
+        "bioHTML": "",
+        "email": "",
+        "name": "Dominic DeSalvo",
+        "url": "https://github.com/a153286"
+      },
+      {
+        "followers": 1,
+        "following": 1,
+        "starredRepositories": 0,
+        "id": "MDQ6VXNlcjYwNzE1MzUz",
+        "login": "MannyPS",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/60715353?u=5d56305dd1d20e452c66b20e828b3eda3a4f5487&v=4",
+        "bioHTML": "",
+        "email": "",
+        "name": "Manuel PÃ©rez Salvo",
+        "url": "https://github.com/MannyPS"
+      },
+      {
+        "followers": 0,
+        "following": 0,
+        "starredRepositories": 0,
+        "id": "MDQ6VXNlcjIwOTExNjQ2",
+        "login": "jdisalvo-vml",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/20911646?u=ea976a9b890ccc5199ec3e3a01e18be0e6b288b9&v=4",
+        "bioHTML": "",
+        "email": "",
+        "name": "John DiSalvo",
+        "url": "https://github.com/jdisalvo-vml"
+      },
+      {
+        "followers": 0,
+        "following": 0,
+        "starredRepositories": 0,
+        "id": "U_kgDOBgC8dA",
+        "login": "francescodisalvo70",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/100711540?v=4",
+        "bioHTML": "",
+        "email": "",
+        "name": "Francesco Di Salvo",
+        "url": "https://github.com/francescodisalvo70"
+      },
+      {
+        "followers": 0,
+        "following": 0,
+        "starredRepositories": 0,
+        "id": "U_kgDOBjY7qQ",
+        "login": "CarlosFol2",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/104217513?u=f2093f429fdd0424d43cab0f8c6059272c154a9f&v=4",
+        "bioHTML": "",
+        "email": "",
+        "name": "Carlos Di Salvo",
+        "url": "https://github.com/CarlosFol2"
+      },
+      {
+        "followers": 0,
+        "following": 0,
+        "starredRepositories": 0,
+        "id": "MDQ6VXNlcjkwMDY0MzY5",
+        "login": "cristopherybd",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/90064369?v=4",
+        "bioHTML": "",
+        "email": "",
+        "name": "CRISTOPHER DAVIS RAMIREZ SALVO",
+        "url": "https://github.com/cristopherybd"
+      },
+      {
+        "followers": 0,
+        "following": 0,
+        "starredRepositories": 1,
+        "id": "MDQ6VXNlcjk1OTkyOTc=",
+        "login": "mediagrok",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/9599297?u=7278ccbbc0487f7a1504114f0cccb10308eb105b&v=4",
+        "bioHTML": "",
+        "email": "",
+        "name": "Michael DeSalvo",
+        "url": "https://github.com/mediagrok"
+      },
+      {
+        "followers": 0,
+        "following": 0,
+        "starredRepositories": 0,
+        "id": "MDQ6VXNlcjc2MTUzNDY0",
+        "login": "danidisalvoz",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/76153464?u=dc4838b94737a3a2ae77c17fac841027aca7aa98&v=4",
+        "bioHTML": "",
+        "email": "",
+        "name": "Daniele Di Salvo",
+        "url": "https://github.com/danidisalvoz"
+      },
+      {
+        "followers": 0,
+        "following": 0,
+        "starredRepositories": 0,
+        "id": "MDQ6VXNlcjc0NzgxNjQ0",
+        "login": "andreluigi77",
+        "avatarUrl": "https://avatars.githubusercontent.com/u/74781644?u=ea6b63f301c073121e1c6b4ab20784df55e10e8b&v=4",
+        "bioHTML": "<div>Professor EBTT - IFSULDEMINAS - Campus Inconfidentes</div>",
+        "email": "",
+        "name": "AndrÃ© Luigi Amaral Di Salvo",
+        "url": "https://github.com/andreluigi77"
+      }
+    ],
+    "userCount": 230,
+    "pageInfo": {
+      "endCursor": "Y3Vyc29yOjIzMA==",
+      "startCursor": "Y3Vyc29yOjIyMQ=="
+    }
+  }
+}
