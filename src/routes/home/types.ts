@@ -1,4 +1,4 @@
-import { User } from "../../components/user-card/UserCard";
+import { User } from '../../components/user-card/UserCard';
 
 export interface PageInfo {
   startCursor: string;
@@ -20,10 +20,7 @@ export interface PaginationState {
 }
 
 export interface SearchState {
-  fetchingStatus:
-    | 'IDLE'
-    | 'IN_PROGRESS'
-    | 'IDLE_PAGINATION_NEEDED';
+  fetchingStatus: 'IDLE' | 'IN_PROGRESS' | 'IDLE_PAGINATION_NEEDED';
   previousRequestedQuery: string | undefined;
   query: string | undefined;
   result: SearchResult | undefined;

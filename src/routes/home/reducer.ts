@@ -1,6 +1,6 @@
-import React from "react";
+import React from 'react';
 
-import { Action, State } from "./types";
+import { Action, State } from './types';
 
 export const reducer: React.Reducer<State, Action> = (state, action) => {
   const { pagination, search } = state;
@@ -10,7 +10,7 @@ export const reducer: React.Reducer<State, Action> = (state, action) => {
       const { query } = action.payload;
       return {
         ...state,
-        search: { ...search, fetchingStatus: "IN_PROGRESS", query },
+        search: { ...search, fetchingStatus: 'IN_PROGRESS', query },
       };
     }
 
@@ -28,7 +28,12 @@ export const reducer: React.Reducer<State, Action> = (state, action) => {
       }
       return {
         ...state,
-        search: { ...search, fetchingStatus: 'IDLE', result, previousRequestedQuery: search.query },
+        search: {
+          ...search,
+          fetchingStatus: 'IDLE',
+          result,
+          previousRequestedQuery: search.query,
+        },
       };
     }
 
@@ -39,7 +44,7 @@ export const reducer: React.Reducer<State, Action> = (state, action) => {
         ...state,
         pagination: {
           ...pagination,
-          shiftingStatus: "IN_PROGRESS",
+          shiftingStatus: 'IN_PROGRESS',
           requestedPage: pagination.currentPage + shift,
         },
       };
@@ -57,7 +62,7 @@ export const reducer: React.Reducer<State, Action> = (state, action) => {
         };
       }
       return {
-        search: {...search, previousRequestedQuery: search.query},
+        search: { ...search, previousRequestedQuery: search.query },
         pagination: {
           ...pagination,
           shiftingStatus: 'IDLE',

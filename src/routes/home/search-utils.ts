@@ -1,5 +1,5 @@
-import { MAX_CURSOR_SHIFT, USERS_PER_PAGE } from "./constants";
-import { PageInfo, SearchResult } from "./types";
+import { MAX_CURSOR_SHIFT, USERS_PER_PAGE } from './constants';
+import { PageInfo, SearchResult } from './types';
 
 interface MoveCursorPageInfo extends PageInfo {
   hasNextPage: boolean;

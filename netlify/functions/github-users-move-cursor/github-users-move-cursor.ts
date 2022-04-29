@@ -82,7 +82,12 @@ query($q:String!, $first:Int, $last:Int, $before:String, $after:String) {
   };
 
   try {
-    const { status, statusText, headers: responseHeaders, data } = await axios(config);
+    const {
+      status,
+      statusText,
+      headers: responseHeaders,
+      data,
+    } = await axios(config);
 
     return {
       statusCode: 200,
