@@ -14,7 +14,7 @@ export interface SearchResult {
 }
 
 export interface PaginationState {
-  shiftingStatus: 'IDLE' | 'REQUESTED' | 'IN_PROGRESS';
+  shiftingStatus: 'IDLE' | 'IN_PROGRESS';
   currentPage: number;
   requestedPage: number;
 }
@@ -22,9 +22,9 @@ export interface PaginationState {
 export interface SearchState {
   fetchingStatus:
     | 'IDLE'
-    | 'REQUESTED'
     | 'IN_PROGRESS'
     | 'IDLE_PAGINATION_NEEDED';
+  previousRequestedQuery: string | undefined;
   query: string | undefined;
   result: SearchResult | undefined;
 }
@@ -33,13 +33,9 @@ export interface State {
   pagination: PaginationState;
   search: SearchState;
 }
-
-interface FetchNewQueryRequested {
-  type: 'FETCH_NEW_QUERY__REQUESTED';
-  payload: { query: string };
-}
 interface FetchNewQueryStarted {
   type: 'FETCH_NEW_QUERY__STARTED';
+  payload: { query: string };
 }
 
 interface FetchNewQuerySuccess {
@@ -47,17 +43,12 @@ interface FetchNewQuerySuccess {
   payload: {
     result: SearchResult;
     paginationNeeded?: boolean;
-    setFirstPage?: boolean;
   };
-}
-
-interface ShiftPageRequested {
-  type: 'SHIFT_PAGE__REQUESTED';
-  payload: { shift: number };
 }
 
 interface ShiftPageStarted {
   type: 'SHIFT_PAGE__STARTED';
+  payload: { shift: number };
 }
 
 interface ShiftPageSuccess {
@@ -70,10 +61,8 @@ interface QueryUpdated {
 }
 
 export type Action =
-  | FetchNewQueryRequested
   | FetchNewQueryStarted
   | FetchNewQuerySuccess
-  | ShiftPageRequested
   | ShiftPageStarted
   | ShiftPageSuccess
   | QueryUpdated;

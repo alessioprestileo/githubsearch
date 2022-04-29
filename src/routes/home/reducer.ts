@@ -6,29 +6,16 @@ export const reducer: React.Reducer<State, Action> = (state, action) => {
   const { pagination, search } = state;
 
   switch (action.type) {
-    case 'FETCH_NEW_QUERY__REQUESTED': {
+    case 'FETCH_NEW_QUERY__STARTED': {
       const { query } = action.payload;
       return {
-        pagination: { ...pagination, currentPage: 1, requestedPage: 1 },
-        search: { ...search, fetchingStatus: 'REQUESTED', query },
-      };
-    }
-
-    case 'FETCH_NEW_QUERY__STARTED': {
-      return {
         ...state,
-        search: { ...search, fetchingStatus: 'IN_PROGRESS' },
+        search: { ...search, fetchingStatus: "IN_PROGRESS", query },
       };
     }
 
     case 'FETCH_NEW_QUERY__SUCCESS': {
-      const { result, setFirstPage, paginationNeeded } = action.payload;
-      if (setFirstPage) {
-        return {
-          pagination: { ...pagination, currentPage: 1, requestedPage: 1 },
-          search: { ...search, fetchingStatus: 'IDLE', result },
-        };
-      }
+      const { result, paginationNeeded } = action.payload;
       if (paginationNeeded) {
         return {
           ...state,
@@ -41,29 +28,19 @@ export const reducer: React.Reducer<State, Action> = (state, action) => {
       }
       return {
         ...state,
-        search: { ...search, fetchingStatus: 'IDLE', result },
+        search: { ...search, fetchingStatus: 'IDLE', result, previousRequestedQuery: search.query },
       };
     }
 
-    case 'SHIFT_PAGE__REQUESTED': {
+    case 'SHIFT_PAGE__STARTED': {
       const { shift } = action.payload;
 
       return {
         ...state,
         pagination: {
           ...pagination,
-          shiftingStatus: 'REQUESTED',
+          shiftingStatus: "IN_PROGRESS",
           requestedPage: pagination.currentPage + shift,
-        },
-      };
-    }
-
-    case 'SHIFT_PAGE__STARTED': {
-      return {
-        ...state,
-        pagination: {
-          ...pagination,
-          shiftingStatus: 'IN_PROGRESS',
         },
       };
     }
@@ -80,7 +57,7 @@ export const reducer: React.Reducer<State, Action> = (state, action) => {
         };
       }
       return {
-        ...state,
+        search: {...search, previousRequestedQuery: search.query},
         pagination: {
           ...pagination,
           shiftingStatus: 'IDLE',

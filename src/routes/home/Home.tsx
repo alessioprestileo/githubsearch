@@ -1,4 +1,4 @@
-import React, { useEffect, useReducer, useRef } from 'react';
+import React, { useEffect, useReducer } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Paper from '@mui/material/Paper';
 import InputBase, { InputBaseProps } from '@mui/material/InputBase';
@@ -24,14 +24,15 @@ const useUrlSearchParams = (): URLSearchParams => {
 };
 
 const initialPagination: PaginationState = {
-  currentPage: 0,
+  currentPage: 1,
   shiftingStatus: 'IDLE',
-  requestedPage: 0,
+  requestedPage: 1,
 };
 
 const initialSearch: SearchState = {
   fetchingStatus: 'IDLE',
   query: undefined,
+  previousRequestedQuery: undefined,
   result: undefined,
 };
 
@@ -44,137 +45,127 @@ const getTotalPages = (userCount: number): number =>
   parseInt(String(userCount / USERS_PER_PAGE)) + 1;
 
 export const Home = () => {
-  const isFirstRender = useRef(true);
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(reducer, initialState);
 
   const urlSearchParams = useUrlSearchParams();
-  const requestedPageFromUrlSearchParams = urlSearchParams.get('page');
-  const initialRequestedPageFromUrlSearchParams = useRef(
-    requestedPageFromUrlSearchParams &&
-      !isNaN(parseInt(requestedPageFromUrlSearchParams))
-      ? parseInt(requestedPageFromUrlSearchParams)
-      : undefined
-  );
-  const initialQueryFromUrlParams = useRef(
-    urlSearchParams.get('q') || undefined
-  );
-  const previousSubmittedQuery = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const {
+      pagination: { currentPage, shiftingStatus },
+      search: { result, fetchingStatus, previousRequestedQuery },
+    } = state;
+    const q = urlSearchParams.get('q') || undefined;
+    const page = urlSearchParams.get('page') || undefined;
+    const parsedPage =
+      page && !isNaN(parseInt(page)) ? parseInt(page) : undefined;
+    if (!q || (parsedPage && parsedPage < 0)) return;
+
+    if (
+      q !== previousRequestedQuery &&
+      fetchingStatus === 'IDLE' &&
+      shiftingStatus === 'IDLE'
+    ) {
+      dispatch({
+        type: 'FETCH_NEW_QUERY__STARTED',
+        payload: { query: q },
+      });
+      performForwardSearch(q).then((result) => {
+        if (!parsedPage || parsedPage === 1) {
+          dispatch({
+            type: 'FETCH_NEW_QUERY__SUCCESS',
+            payload: { result },
+          });
+
+          return;
+        }
+
+        dispatch({
+          type: 'FETCH_NEW_QUERY__SUCCESS',
+          payload: { result, paginationNeeded: true },
+        });
+      });
+    }
+
+    if (!result) return;
+
+    if (
+      parsedPage &&
+      parsedPage > 0 &&
+      parsedPage !== currentPage &&
+      (fetchingStatus === 'IDLE' ||
+        fetchingStatus === 'IDLE_PAGINATION_NEEDED') &&
+      shiftingStatus === 'IDLE'
+    ) {
+      const shift = parsedPage - currentPage;
+      dispatch({
+        type: 'SHIFT_PAGE__STARTED',
+        payload: {
+          shift,
+        },
+      });
+      const {
+        pageInfo: { endCursor, startCursor },
+        userCount,
+      } = result.data;
+      if (shift === 1) {
+        dispatch({
+          type: 'FETCH_NEW_QUERY__STARTED',
+          payload: { query: q },
+        });
+        performForwardSearch(q, endCursor).then((result) => {
+          dispatch({ type: 'FETCH_NEW_QUERY__SUCCESS', payload: { result } });
+          dispatch({ type: 'SHIFT_PAGE__SUCCESS' });
+        });
+      } else if (shift === -1) {
+        dispatch({
+          type: 'FETCH_NEW_QUERY__STARTED',
+          payload: { query: q },
+        });
+        performBackwardsSearch(q, startCursor).then((result) => {
+          dispatch({ type: 'FETCH_NEW_QUERY__SUCCESS', payload: { result } });
+          dispatch({ type: 'SHIFT_PAGE__SUCCESS' });
+        });
+      } else if (shift > 1 && currentPage + shift <= getTotalPages(userCount)) {
+        fetchNewCursor(q, USERS_PER_PAGE * (shift - 1), endCursor).then(
+          async (cursor) => {
+            dispatch({
+              type: 'FETCH_NEW_QUERY__STARTED',
+              payload: { query: q },
+            });
+            const result = await performForwardSearch(q, cursor);
+            dispatch({ type: 'FETCH_NEW_QUERY__SUCCESS', payload: { result } });
+            dispatch({ type: 'SHIFT_PAGE__SUCCESS' });
+          }
+        );
+      } else if (shift < -1 && currentPage + shift >= 1) {
+        fetchNewCursor(q, USERS_PER_PAGE * (shift + 1), startCursor).then(
+          async (cursor) => {
+            dispatch({
+              type: 'FETCH_NEW_QUERY__STARTED',
+              payload: { query: q },
+            });
+            const result = await performBackwardsSearch(q, cursor);
+            dispatch({
+              type: 'FETCH_NEW_QUERY__SUCCESS',
+              payload: { result },
+            });
+            dispatch({ type: 'SHIFT_PAGE__SUCCESS' });
+          }
+        );
+      }
+    }
+  }, [urlSearchParams, state]);
 
   const handleQueryChange: InputBaseProps['onChange'] = (e) => {
     const { value: query } = e.target;
     dispatch({ type: 'QUERY_UPDATED', payload: { query } });
   };
 
-  useEffect(() => {
-    const {
-      pagination: { shiftingStatus },
-      search: { fetchingStatus, query },
-    } = state;
-    if (isFirstRender.current && !query && initialQueryFromUrlParams.current) {
-      isFirstRender.current = false;
-      if (fetchingStatus === 'IDLE' && shiftingStatus === 'IDLE') {
-        dispatch({
-          type: 'FETCH_NEW_QUERY__REQUESTED',
-          payload: { query: initialQueryFromUrlParams.current },
-        });
-        dispatch({ type: 'FETCH_NEW_QUERY__STARTED' });
-        performForwardSearch(initialQueryFromUrlParams.current).then(
-          (result) => {
-            if (
-              !initialRequestedPageFromUrlSearchParams.current ||
-              initialRequestedPageFromUrlSearchParams.current <= 1
-            ) {
-              dispatch({
-                type: 'FETCH_NEW_QUERY__SUCCESS',
-                payload: { result, setFirstPage: true },
-              });
-            } else {
-              dispatch({
-                type: 'FETCH_NEW_QUERY__SUCCESS',
-                payload: { result, paginationNeeded: true },
-              });
-              dispatch({
-                type: 'SHIFT_PAGE__REQUESTED',
-                payload: {
-                  shift: initialRequestedPageFromUrlSearchParams.current - 1,
-                },
-              });
-              previousSubmittedQuery.current = query;
-            }
-          }
-        );
-      }
-    }
-  }, [state]);
-
-  useEffect(() => {
-    const {
-      pagination: { currentPage, shiftingStatus, requestedPage },
-      search: { fetchingStatus, query, result },
-    } = state;
-
-    if (query && fetchingStatus === 'REQUESTED' && shiftingStatus === 'IDLE') {
-      dispatch({ type: 'FETCH_NEW_QUERY__STARTED' });
-      performForwardSearch(query).then((result) => {
-        dispatch({ type: 'FETCH_NEW_QUERY__SUCCESS', payload: { result } });
-        dispatch({ type: 'SHIFT_PAGE__SUCCESS' });
-      });
-
-      return;
-    }
-
-    if (
-      query &&
-      result &&
-      shiftingStatus === 'REQUESTED' &&
-      (fetchingStatus === 'IDLE' || fetchingStatus === 'IDLE_PAGINATION_NEEDED')
-    ) {
-      dispatch({ type: 'SHIFT_PAGE__STARTED' });
-      const shift = requestedPage - currentPage;
-      const {
-        pageInfo: { endCursor, startCursor },
-        userCount,
-      } = result.data;
-      if (shift === 1) {
-        performForwardSearch(query, endCursor).then((result) => {
-          dispatch({ type: 'FETCH_NEW_QUERY__SUCCESS', payload: { result } });
-          dispatch({ type: 'SHIFT_PAGE__SUCCESS' });
-        });
-      } else if (shift === -1) {
-        performBackwardsSearch(query, startCursor).then((result) => {
-          dispatch({ type: 'FETCH_NEW_QUERY__SUCCESS', payload: { result } });
-          dispatch({ type: 'SHIFT_PAGE__SUCCESS' });
-        });
-      } else if (shift > 1 && currentPage + shift <= getTotalPages(userCount)) {
-        fetchNewCursor(query, USERS_PER_PAGE * (shift - 1), endCursor).then(
-          async (cursor) => {
-            const result = await performForwardSearch(query, cursor);
-            dispatch({ type: 'FETCH_NEW_QUERY__SUCCESS', payload: { result } });
-            dispatch({ type: 'SHIFT_PAGE__SUCCESS' });
-          }
-        );
-      } else if (shift < -1 && currentPage + shift >= 1) {
-        fetchNewCursor(query, USERS_PER_PAGE * (shift + 1), startCursor).then(
-          async (cursor) => {
-            performBackwardsSearch(query, cursor).then((result) => {
-              dispatch({
-                type: 'FETCH_NEW_QUERY__SUCCESS',
-                payload: { result },
-              });
-              dispatch({ type: 'SHIFT_PAGE__SUCCESS' });
-            });
-          }
-        );
-      }
-    }
-  }, [state]);
-
   const {
-    pagination: { currentPage, shiftingStatus, requestedPage },
-    search: { fetchingStatus, query, result },
+    pagination: { shiftingStatus, requestedPage },
+    search: { fetchingStatus, query, result, previousRequestedQuery },
   } = state;
-  const queryHasChanged = query !== previousSubmittedQuery.current;
+  const queryHasChanged = previousRequestedQuery !== query;
   const showResultItemsList =
     shiftingStatus === 'IDLE' && fetchingStatus !== 'IDLE_PAGINATION_NEEDED';
 
@@ -195,11 +186,6 @@ export const Home = () => {
         onSubmit={(e: React.FormEvent) => {
           e.preventDefault();
           navigate(`/?q=${encodeURIComponent(query!)}`);
-          previousSubmittedQuery.current = query;
-          dispatch({
-            type: 'FETCH_NEW_QUERY__REQUESTED',
-            payload: { query: query! },
-          });
         }}
       >
         <InputBase
@@ -268,13 +254,9 @@ export const Home = () => {
                 onChange={(event, page) => {
                   navigate(
                     `/?q=${encodeURIComponent(
-                      previousSubmittedQuery.current!
+                      previousRequestedQuery!
                     )}&page=${page}`
                   );
-                  dispatch({
-                    type: 'SHIFT_PAGE__REQUESTED',
-                    payload: { shift: page - currentPage },
-                  });
                 }}
               />
             )}
