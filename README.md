@@ -16,8 +16,7 @@ You will also see any lint errors in the console.
 
 ### `yarn test`
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Launches Cypress test runner.
 
 ### `yarn build`
 
@@ -29,18 +28,22 @@ Your app is ready to be deployed!
 
 See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
-### `yarn eject`
+## Especially interesting about this project
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+I took this project as an opportunity to get more familiar with 2 technologies with which I have very little experience:
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- GraphQl apis
+- Cypress test runner
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+## Especially good/advanced about this project
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+- The pagination I implemented allows the user to jump over several pages instead of moving up or down one page at a time. It was not easy to come up with the implementation to make that work.
+- The application is url-driven. As a nice consequence of that, after having clicked on a github username from the list and navigated to the github website, the user can click the back arrow of the browser, and come back to my app to the same results they were viewing before leaving the app (same search and same page).
+- The cypress tests are a joy to see and to write :-). I stubbed all the calls to the github api, so that running the tests does not affect my api score.
 
-## Learn More
+## Next features/improvements
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+- I'd like to display the api score on the screen, so that the user can see how much the search is costing them in terms of api capacity. I am already sending the necessary data from the netlify functions to the client, but I didn't have time to implement the GUI for this feature.
+- I'd like to add more tests, for example to check that the app works with the page as a url param, and improve the existing ones so they can check more details.
+- I'd like to add error handling, for example to give feedback to the user when the call failed because the search was badly formed.
+- Caching would also be a nice improvement, so that there is no need to send api calls that have already been sent previously.
