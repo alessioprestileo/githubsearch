@@ -1,0 +1,33 @@
+.home {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.search-result-total {
+  margin-top: 10px;
+}
+
+.search-result-items {
+  display: flex;
+  flex-grow: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  margin-top: 15px;
+  border-top: 1px solid gray;
+  border-bottom: 1px solid gray;
+  padding: 10px;
+}
+
+.search-result-items-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.search-result-pagination {
+  margin: 15px 0;
+}
