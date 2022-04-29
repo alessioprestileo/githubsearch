@@ -29,7 +29,7 @@
   },
   "scripts": {
     "create-react-app:start": "react-scripts start",
-    "create-react-app:build": "react-scripts build",
+    "build": "react-scripts build",
     "create-react-app:test": "react-scripts test",
     "create-react-app:eject": "react-scripts eject",
     "format": "prettier --write .",
